@@ -17,7 +17,7 @@ const server = http.createServer(app);
 const Port = process.env.PORT || 8000;
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:3001",
+    origin: "http://localhost:3000",
   },
 });
 mongoose
@@ -102,7 +102,7 @@ io.on("connection", async (socket) => {
 
     const res = await friendModel.deleteMany({ recipeint: reciver._id });
   });
-  //get all chatlist
+  //!get all chatlist
   socket.on("get_direct_conversions", async (data, callback) => {
     try {
       console.log("get direct conversons above");
@@ -110,22 +110,26 @@ io.on("connection", async (socket) => {
       const to = jwtDecodes(token).id;
       const diretConversions = await OnetoOneMessageModel.find({
         participants: { $all: [to] },
-      }).populate("participants", "fullname status email _id");
-
+      })
+        .populate(
+          "participants",
+          "fullname status email  _id lastMessage lastMessageTime unread lastMessageTimeSort"
+        )
+        .select("-message");
       callback(diretConversions, to);
     } catch (error) {
       console.log(error);
     }
   });
+  //! start_conversion
 
-  socket.on("start_conversion", async (data) => {
+  socket.on("start_conversion", async (data, callback) => {
     try {
       const { token, from } = data;
       const to = jwtDecodes(token).id;
       const existing_conversations = await OnetoOneMessageModel.find({
         participants: { $size: 2, $all: [to, from] },
       }).populate("participants", "fullname");
-      console.log(existing_conversations);
       if (existing_conversations.length == 0) {
         let new_chat = await OnetoOneMessageModel.create({
           participants: [to, from],
@@ -134,38 +138,74 @@ io.on("connection", async (socket) => {
         new_chat = OnetoOneMessageModel.find({
           participants: { $size: 2, all: [to, from] },
         });
+
         socket.emit("start_chat", new_chat);
+
+        callback(new_chat._id, from);
       } else {
         socket.emit("start_chat", existing_conversations[0]);
+        callback(existing_conversations[0]._id, from);
       }
     } catch (error) {
       console.log(error);
     }
   });
-  //send user message when click on chat list
+  //!send user message when click on chat list
   socket.on("get_message", async (data, callback) => {
-    const { conversions_id } = data;
-    const chats = await OnetoOneMessageModel.findById(conversions_id);
-    callback(chats.message);
+    try {
+      const { conversions_id, token } = data;
+      const to = await jwtDecodes(token).id;
+      const chats = await OnetoOneMessageModel.findById(conversions_id);
+      try {
+        const result = await OnetoOneMessageModel.updateOne(
+          { _id: conversions_id, "unread.id": to },
+          { $set: { "unread.$.unread": 0 } }
+        );
+      } catch (error) {
+        console.error("Update Error:", error);
+      }
+
+      callback(chats.message);
+    } catch (error) {
+      console.log(error);
+    }
   });
 
-  //send text message
+  //!send text message
 
   socket.on("text_message", async (data) => {
     try {
       const { token, from, type, message, conversation_id, sender } = data;
-      const chat = await OnetoOneMessageModel.findById(conversation_id);
-      const to = jwtDecodes(token).id;
-      const to_user = await userModels.findById(to);
-
-      const from_user = await userModels.findById(from);
       const currentDate = new Date();
-
-      const formattedTime = currentDate.toLocaleTimeString("en-US", {
+      const formattedTime = await currentDate.toLocaleTimeString("en-US", {
         hour: "numeric",
         minute: "numeric",
         hour12: true, // Set to true to include AM/PM
       });
+
+      const chat = await OnetoOneMessageModel.findById(conversation_id);
+      const to = jwtDecodes(token).id;
+      const to_user = await userModels.findById(to);
+      const from_user = await userModels.findById(from);
+      chat.lastMessageTime = formattedTime;
+      chat.lastMessageTimeSort = Date.now();
+
+      //!user update last message and time and unread messages
+      //* what is $ on here it can update fast matching value
+
+      chat.lastMessageTime = formattedTime;
+      chat.lastMessage = message;
+      try {
+        const result = await OnetoOneMessageModel.updateOne(
+          { _id: conversation_id, "unread.id": from },
+          { $inc: { "unread.$.unread": 1 } }
+        );
+      } catch (error) {
+        console.error("Update Error:", error);
+      }
+
+      //! unread message
+
       const new_message = {
         to,
         from,
@@ -173,7 +213,6 @@ io.on("connection", async (socket) => {
         message: message,
         created_at: `${Date()} + ${formattedTime}`,
       };
-      console.log(formattedTime);
       chat.message.push(new_message);
       await chat.save();
 
@@ -189,11 +228,10 @@ io.on("connection", async (socket) => {
       console.log(error);
     }
   });
-  //link message
+  //!link message
 
   socket.on("link_message", async (data) => {
     try {
-      console.log(data);
       const {
         token,
         from,
@@ -239,6 +277,18 @@ io.on("connection", async (socket) => {
       });
     } catch (error) {
       console.log(error);
+    }
+  });
+  socket.on("read_message", async (data) => {
+    try {
+      const { conversions_id, token } = data;
+      const to = await jwtDecodes(token).id;
+      const result = await OnetoOneMessageModel.updateOne(
+        { _id: conversions_id, "unread.id": to },
+        { $set: { "unread.$.unread": 0 } }
+      );
+    } catch (error) {
+      console.error("Update Error:", error);
     }
   });
 

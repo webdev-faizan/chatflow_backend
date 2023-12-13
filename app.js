@@ -15,7 +15,7 @@ const app = Express();
 // app.use(helmet());
 // app.use(rateLimit(Limit));
 app.use(cors(Cors));
-app.use(Express.json({ limit: "10kb" }));
+app.use(Express.json({ limit: "40kb" }));
 // if (process.env.NODE_ENV == "development") app.use(morgan("combined"));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.urlencoded({ extended: false }));

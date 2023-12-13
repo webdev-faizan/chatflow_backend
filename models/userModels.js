@@ -16,6 +16,7 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: true,
   },
+
   otp: {
     type: String,
     default: null,
@@ -42,16 +43,8 @@ const userSchema = new mongoose.Schema({
   conversationOpen: {
     type: Boolean,
   },
-  unReadMessages: {
-    type: Number,
-  },
-  lastMessage: {
-    type: String,
-  },
-  lastMessageTime: {
-    type: Date,
-  },
 });
+
 
 userSchema.pre("save", function (next) {
   if (!this?.isModified("otp")) next();

@@ -7,6 +7,23 @@ const oneToOneMessagesSchema = new mongoose.Schema({
       ref: "user",
     },
   ],
+  lastMessage: {
+    type: String,
+  },
+  lastMessageTime: {
+    type: String,
+  },
+  unread: [
+    {
+      _id: false,
+      id: String,
+      unread: Number,
+    },
+  ],
+  lastMessageTimeSort: {
+    type: Date,
+    default: Date.now,
+  },
   message: [
     {
       to: {
@@ -25,8 +42,8 @@ const oneToOneMessagesSchema = new mongoose.Schema({
         type: String,
         enum: ["Text", "Media", "Link", "Document"],
       },
-      fileName:{
-        type:String
+      fileName: {
+        type: String,
       },
       link: {
         type: String,
@@ -42,6 +59,24 @@ const oneToOneMessagesSchema = new mongoose.Schema({
       },
     },
   ],
+});
+//! to it later
+
+oneToOneMessagesSchema.pre("save", function (next) {
+  if (this?.isModified("participants")) {
+    this.unread = [
+      {
+        id: this.participants[0],
+        unread: 0,
+      },
+      {
+        id: this.participants[1],
+        unread: 0,
+      },
+    ];
+  }
+
+  next();
 });
 
 const OnetoOneMessageModel = new mongoose.model(
