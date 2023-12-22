@@ -20,6 +20,16 @@ const oneToOneMessagesSchema = new mongoose.Schema({
       unread: Number,
     },
   ],
+  status: [
+    {
+      _id: false,
+      id: String,
+      delete: {
+        default: false,
+        type: Boolean,
+      },
+    },
+  ],
   lastMessageTimeSort: {
     type: Date,
     default: Date.now,
@@ -72,6 +82,29 @@ oneToOneMessagesSchema.pre("save", function (next) {
       {
         id: this.participants[1],
         unread: 0,
+      },
+    ];
+    this.status = [
+      {
+        id: this.participants[0],
+        delete: false,
+      },
+      {
+        id: this.participants[1],
+        delete: false,
+      },
+    ];
+  }
+
+  if (this?.isModified("message")) {
+    this.status = [
+      {
+        id: this.participants[0],
+        delete: false,
+      },
+      {
+        id: this.participants[1],
+        delete: false,
       },
     ];
   }

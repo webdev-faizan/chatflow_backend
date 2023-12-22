@@ -8,6 +8,7 @@ import userModels from "./models/userModels.js";
 import jwtDecodes from "./utils/jwtDecode.js";
 import friendModel from "./models/friendRequestModel.js";
 import OnetoOneMessageModel from "./models/oneToOneMessages.js";
+import { userInfo } from "os";
 process.on("uncaughtException", (error) => {
   console.log(" uncaughtException", error);
   process.exit(0);
@@ -46,7 +47,7 @@ io.on("connection", async (socket) => {
       console.log(error);
     }
   }
-  // //create friend request
+  //! create friend request
   socket.on("friendRequest", async (data) => {
     const { to, from } = data;
 
@@ -94,8 +95,7 @@ io.on("connection", async (socket) => {
     socket.to(sender?.socketId).emit("friend_request_accepted", {
       message: `${reciver?.fullname} has accepted your friend request.`,
     });
-    console.log("faizan");
-    //infom successflly accepted friend request
+
     io.to(reciver?.socketId).emit("friend_request_accepted", {
       message: `🎉 You have a new friend: ${sender?.fullname}! Welcome them with open arms!`,
     });
@@ -113,7 +113,7 @@ io.on("connection", async (socket) => {
       })
         .populate(
           "participants",
-          "fullname status email  _id lastMessage lastMessageTime unread lastMessageTimeSort"
+          "fullname status email  _id lastMessage lastMessageTime unread lastMessageTimeSort status"
         )
         .select("-message");
       callback(diretConversions, to);
@@ -175,7 +175,7 @@ io.on("connection", async (socket) => {
 
   socket.on("text_message", async (data) => {
     try {
-      const { token, from, type, message, conversation_id, sender } = data;
+      const { token, from, message, conversation_id } = data;
       const currentDate = new Date();
       const formattedTime = await currentDate.toLocaleTimeString("en-US", {
         hour: "numeric",
@@ -219,10 +219,12 @@ io.on("connection", async (socket) => {
       io.to(to_user?.socketId).emit("new_message", {
         message: new_message,
         conversation_id,
+        token,
       });
       io.to(from_user?.socketId).emit("new_message", {
         message: new_message,
         conversation_id,
+        token,
       });
     } catch (error) {
       console.log(error);
@@ -264,6 +266,12 @@ io.on("connection", async (socket) => {
         message: message,
         created_at: `${Date()} + ${formattedTime}`,
       };
+      if (subType == "Media") {
+        chat.lastMessage == "🖼️  🖼️";
+      } else if (subType == "Document") {
+        chat.lastMessage == "📋  📋";
+      }
+
       chat.message.push(new_message);
       await chat.save();
 
@@ -291,7 +299,41 @@ io.on("connection", async (socket) => {
       console.error("Update Error:", error);
     }
   });
+  socket.on("delete_chatlist", async (data) => {
+    try {
+      const { conversions_id, token } = data;
+      const to = await jwtDecodes(token).id;
+      await OnetoOneMessageModel.updateOne(
+        { _id: conversions_id, "status.id": to },
+        { $set: { "status.$.delete": true } }
+      );
+    } catch (error) {
+      console.error("Update Error:", error);
+    }
+  });
+  //! video calling
+  socket.on("calluser", async (data) => {
+    const { signalData, userToCall } = data;
+    const user = await userModels.findById(userToCall).select("socketId");
+    // socket.emit('calluser','nice')
+    console.log(user)
+    io.to(user.socketId).emit("calluser", signalData);
+  });
 
+  socket.on("answerCall", async (data) => {
+    try {
+      const { signal, caluserinfo } = data;
+      
+      const user = await userModels.findById(caluserinfo).select("socketId");
+      io.to(user.socketId).emit("callAccepted", signal);
+    } catch (error) {
+      console.log(error);
+    }
+  });
+
+  socket.on("disconnect", () => {
+    // socket.broadcast.emit("callEnded");
+  });
   io.on("end", async (data) => {
     console.log({ data, message: "user disconnected" });
     // const userInfo = data.userInfo;

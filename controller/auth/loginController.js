@@ -3,9 +3,10 @@ import sessionTokenGenerator from "../../utils/jwtUtils.js";
 
 const loginController = async (req, resp) => {
   const { email, password } = req.body;
+  console.log(req.body)
   const user = await userModels.findOne({ email });
-  const passwordss = await user.correctPassword(password, user.password);
-  console.log(passwordss);
+  // const passwordss = await user.correctPassword(password, user.password);
+  // console.log(passwordss);
 
   // console.log(user);
   if (user) {
