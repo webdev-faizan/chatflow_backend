@@ -126,15 +126,26 @@ io.on("connection", async (socket) => {
   socket.on("start_conversion", async (data, callback) => {
     try {
       const { token, from } = data;
-      const to = jwtDecodes(token).id;
+      const to = await jwtDecodes(token).id;
       const existing_conversations = await OnetoOneMessageModel.find({
         participants: { $size: 2, $all: [to, from] },
       }).populate("participants", "fullname");
+      await OnetoOneMessageModel.updateOne(
+        {
+          _id: existing_conversations[0]._id,
+          "status.id": to,
+        },
+        {
+          $set: { "status.$.delete": false },
+          lastMessageTimeSort: Date.now(),
+        }
+      );
       if (existing_conversations.length == 0) {
         let new_chat = await OnetoOneMessageModel.create({
           participants: [to, from],
         });
         new_chat.save();
+
         new_chat = OnetoOneMessageModel.find({
           participants: { $size: 2, all: [to, from] },
         });
@@ -312,18 +323,52 @@ io.on("connection", async (socket) => {
     }
   });
   //! video calling
+  //* check user is buy or not
+  //* check user is online or not
+  //* check user dined call
+  //! call user
   socket.on("calluser", async (data) => {
-    const { signalData, userToCall } = data;
-    const user = await userModels.findById(userToCall).select("socketId");
-    // socket.emit('calluser','nice')
-    console.log(user)
-    io.to(user.socketId).emit("calluser", signalData);
-  });
+    const { signalData, userToCall, token } = data;
 
+    const to = await jwtDecodes(token).id;
+    const user = await userModels
+      .findById(userToCall)
+      .select("socketId status");
+
+    if (user.status == "online") {
+      console.log("status");
+      io.to(user.socketId).emit("calluser", { signal: signalData, to: to });
+    } else {
+      const user = await userModels.findById(to).select("socketId");
+
+      io.to(user.socketId).emit("user_offline", {
+        message: "The user is currently unavailable",
+      });
+    }
+  });
+  //!//!busy user with another call
+  socket.on("busy_another_call", async ({ id }) => {
+    const user = await userModels.findById(id).select("socketId");
+    io.to(user.socketId).emit("busy_another_call", {
+      message: "busy_another_call",
+    });
+  });
+  //!call denied
+  socket.on("call_denied", async ({ id }) => {
+    console.log('call denied')
+    const user = await userModels.findById(id).select("socketId");
+    io.to(user.socketId).emit("call_denied", { message: "Call Denied" });
+  });
+  //! call end
+  socket.on("Call_end", async ({ id }) => {
+    const user = await userModels.findById(id).select("socketId");
+    io.to(user.socketId).emit("call_end", { message: "Call End" });
+  });
+  //!answer call
   socket.on("answerCall", async (data) => {
     try {
       const { signal, caluserinfo } = data;
-      
+      console.log(caluserinfo);
       const user = await userModels.findById(caluserinfo).select("socketId");
       io.to(user.socketId).emit("callAccepted", signal);
     } catch (error) {
