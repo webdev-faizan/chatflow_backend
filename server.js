@@ -335,7 +335,6 @@ io.on("connection", async (socket) => {
       .select("socketId status");
 
     if (user.status == "online") {
-      console.log("status");
       io.to(user.socketId).emit("calluser", { signal: signalData, to: to });
     } else {
       const user = await userModels.findById(to).select("socketId");
@@ -353,10 +352,12 @@ io.on("connection", async (socket) => {
     const user = await userModels
       .findById(userToCall)
       .select("socketId status");
-
     if (user.status == "online") {
       console.log("status");
-      io.to(user.socketId).emit("calluser", { signal: signalData, to: to });
+      io.to(user.socketId).emit("calluser_audio", {
+        signal: signalData,
+        to: to,
+      });
     } else {
       const user = await userModels.findById(to).select("socketId");
 
@@ -388,14 +389,26 @@ io.on("connection", async (socket) => {
   socket.on("answerCall", async (data) => {
     try {
       const { signal, caluserinfo } = data;
-      console.log(caluserinfo);
       const user = await userModels.findById(caluserinfo).select("socketId");
       io.to(user.socketId).emit("callAccepted", signal);
     } catch (error) {
       console.log(error);
     }
   });
+  //! infom user user call end the cal
+  socket.on("audio_call_end", async ({ id }) => {
+    const user = await userModels.findById(id).select("socketId");
+    io.to(user.socketId).emit("audio_call_end", {
+      message: "use have end the call",
+    });
+  });
 
+  socket.on("Video_call_end", async ({ id }) => {
+    const user = await userModels.findById(id).select("socketId");
+    io.to(user.socketId).emit("Video_call_end", {
+      message: "use have end the call",
+    });
+  });
   socket.on("disconnect", () => {
     // socket.broadcast.emit("callEnded");
   });
