@@ -8,12 +8,9 @@ import userModels from "./models/userModels.js";
 import jwtDecodes from "./utils/jwtDecode.js";
 import friendModel from "./models/friendRequestModel.js";
 import OnetoOneMessageModel from "./models/oneToOneMessages.js";
-import { userInfo } from "os";
 process.on("uncaughtException", (error) => {
-  console.log(" uncaughtException", error);
   process.exit(0);
 });
-
 const server = http.createServer(app);
 const Port = process.env.PORT || 8000;
 const io = new Server(server, {

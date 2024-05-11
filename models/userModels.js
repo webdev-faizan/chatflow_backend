@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
+import crypto from 'crypto'
 const userSchema = new mongoose.Schema({
   fullname: {
     type: String,
@@ -12,11 +13,10 @@ const userSchema = new mongoose.Schema({
   passwordResetExpires: String,
   createdAt: String,
   updatedAt: String,
-  verified: {
+  emailVerified: {
     type: Boolean,
     default: true,
   },
-
   otp: {
     type: String,
     default: null,
@@ -45,7 +45,6 @@ const userSchema = new mongoose.Schema({
   },
 });
 
-
 userSchema.pre("save", function (next) {
   if (!this?.isModified("otp")) next();
 
@@ -67,18 +66,14 @@ userSchema.methods.correctPassword = async function (
 ) {
   return bcrypt.compareSync(canditatepassword, userpassword);
 };
-userSchema.CreatePasswordResetToken = function () {
-  const resetToken = crypto.randomBytes(32).toString("hex");
-  this.passwordResetToken = crypto
+userSchema.methods.PasswordResetToken = async function () {
+  this.passwordResetExpires = Date.now() + 10 * 60 * 1000;
+  const resetToken = await crypto.randomBytes(32).toString("hex");
+  this.passwordResetToken = await crypto
     .createHash("sha256")
-    .update(resetToken)
+    .update(`${resetToken}`)
     .digest("hex");
-  this.passwordResetExpires = Date.now() + 10 + 1000 * 60;
   return resetToken;
-};
-// method check after issue token the user change password or not
-userSchema.methods.changePasswordAfter = function (timestamp) {
-  return timestamp > this.passwordChangeAt;
 };
 const userModels = new mongoose.model("user", userSchema);
 export default userModels;
