@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
-import crypto from 'crypto'
+import crypto from "crypto";
+import { type } from "os";
 const userSchema = new mongoose.Schema({
   fullname: {
     type: String,
@@ -8,18 +9,28 @@ const userSchema = new mongoose.Schema({
   avatar: { type: String },
   email: { type: String },
   password: { type: String },
-  passwordChangeAt: Date,
-  passwordResetToken: String,
-  passwordResetExpires: String,
-  createdAt: String,
-  updatedAt: String,
+  passwordChangeAt: {
+    type: Date,
+  },
+  passwordResetToken: {
+    type: String,
+  },
+  passwordResetExpires: {
+    type: Date,
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now(),
+  },
   emailVerified: {
     type: Boolean,
-    default: true,
+    default: false,
+  },
+  optExpiryToken: {
+    type: String,
   },
   otp: {
     type: String,
-    default: null,
   },
   otpExpiryTime: Date,
   friends: [
@@ -40,16 +51,11 @@ const userSchema = new mongoose.Schema({
     default: "offline",
     enum: ["online", "offline"],
   },
-  conversationOpen: {
-    type: Boolean,
-  },
 });
 
 userSchema.pre("save", function (next) {
   if (!this?.isModified("otp")) next();
-
   this.otp = bcrypt.hashSync(this.otp, 8);
-
   next();
 });
 

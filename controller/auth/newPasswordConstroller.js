@@ -13,15 +13,17 @@ const newPassword = async (req, res) => {
       passwordResetExpires: { $gt: Date.now() },
     });
     if (this_user) {
-      this_user.password = this_user.hashPassword(password);
+      this_user.password = password;
       this_user.passwordResetExpires = undefined;
       this_user.passwordResetToken = undefined;
       this_user.lastPasswordChangeAt = Date.now();
       await this_user.save();
+      return res.status(200).json({ message: "Password Successfully Changed" });
     } else {
       return res.status(401).json({ message: "Invalid token or expiry" });
     }
   } catch (error) {
+    console.log(error);
     return res.status(500).json({ message: "Internal sever error" });
   }
 };
