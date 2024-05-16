@@ -3,8 +3,7 @@ import signUpController from "../controller/auth/signUpController.js";
 import loginController from "../controller/auth/loginController.js";
 import forgetPassword from "../controller/auth/forgetpasswordController.js";
 import newPassword from "../controller/auth/newPasswordConstroller.js";
-import   emailVerification,
-from "../controller/auth/emailVerficationController.js";
+import emailVerification from "../controller/auth/emailVerficationController.js";
 const authRoutes = Router();
 authRoutes.post("/login", loginController);
 authRoutes.post("/register", signUpController);
