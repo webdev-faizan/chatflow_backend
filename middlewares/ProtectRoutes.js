@@ -1,5 +1,5 @@
 import userModels from "../models/userModels.js";
-import jwtDecodes from "../utils/jwtDecode.js";
+import Jwt from "jsonwebtoken";
 
 const ProtectRoutes = async (req, resp, next) => {
   try {
@@ -8,30 +8,19 @@ const ProtectRoutes = async (req, resp, next) => {
       req.headers.authorization.startsWith("Bearer")
     ) {
       const token = req.headers.authorization.split(" ")[1];
-      const existing_user = await userModels.findById({ _id: userInfo.id });
       const userInfo = Jwt.verify(token, process.env.JWT_SECRET);
+      const existing_user = await userModels.findById({ _id: userInfo.id });
       if (existing_user) {
-        if (userInfo.iat > userInfo.passwordChangeAt) {
-          req.user = existing_user.id;
-          next();
-        }
-        resp.clearCookie("auth");
-        resp.redirect("/login");
-        return resp.status(401).json({ message: "Session is Expired" });
+        req.user = existing_user.id;
+        next();
       } else {
-        resp.clearCookie("auth");
-        resp.redirect("/login");
         return resp.status(403).json({ message: "User not found" });
       }
     } else {
-      resp.clearCookie("auth");
-      resp.redirect("/login");
       return resp.status(403).json({ message: "invalid token or expire" });
     }
   } catch (error) {
-    resp.clearCookie("auth");
-    resp.redirect("/login");
-    return resp.status(5000).json({ message: "Internal server error" });
+    return resp.status(500).json({ message: "Internal server error" });
   }
 };
 export default ProtectRoutes;

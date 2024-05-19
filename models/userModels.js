@@ -1,12 +1,11 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-import { type } from "os";
 const userSchema = new mongoose.Schema({
   fullname: {
     type: String,
   },
-  avatar: { type: String },
+  avatar: { type: String, default: "" },
   email: { type: String },
   password: { type: String },
   passwordChangeAt: {

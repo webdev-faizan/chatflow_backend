@@ -3,12 +3,10 @@ import userModels from "../../models/userModels.js";
 const unconnectedUsersController = async (req, resp) => {
   try {
     const allUsers = await userModels
-      .find({ verified: true })
+      .find({ emailVerified: true })
       .select("friends fullname _id email status");
     const userId = await req.user;
-
     const userinfo = await userModels.findById(userId);
-
     const remaining_users = await allUsers.filter((user) => {
       return (
         userId != user._id &&

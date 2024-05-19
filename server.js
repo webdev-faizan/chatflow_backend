@@ -9,6 +9,7 @@ import jwtDecodes from "./utils/jwtDecode.js";
 import friendModel from "./models/friendRequestModel.js";
 import OnetoOneMessageModel from "./models/oneToOneMessages.js";
 process.on("uncaughtException", (error) => {
+  console.log(error);
   process.exit(0);
 });
 const server = http.createServer(app);
@@ -344,7 +345,6 @@ io.on("connection", async (socket) => {
   //! audio call
   socket.on("calluser_audio", async (data) => {
     const { signalData, userToCall, token } = data;
-
     const to = await jwtDecodes(token).id;
     const user = await userModels
       .findById(userToCall)
@@ -357,7 +357,6 @@ io.on("connection", async (socket) => {
       });
     } else {
       const user = await userModels.findById(to).select("socketId");
-
       io.to(user.socketId).emit("user_offline", {
         message: "The user is currently unavailable",
       });
@@ -406,10 +405,11 @@ io.on("connection", async (socket) => {
       message: "use have end the call",
     });
   });
-  socket.on("disconnect", () => {
+  socket.on("disconnect", async (userId) => {
+    // console.log(socket.id);
     // socket.broadcast.emit("callEnded");
   });
-  io.on("end", async (data) => {
+  io.on("close", async (data) => {
     console.log({ data, message: "user disconnected" });
     // const userInfo = data.userInfo;
     // await User.findByIdAndUpdate(data.user_id, { status: "Offline" });
@@ -418,8 +418,9 @@ io.on("connection", async (socket) => {
   // We can write our socket event listeners in here...
 });
 
-process.on("unhandledRejection", () => {
+process.on("unhandledRejection", (error) => {
   // console.log({ unhandledRejection });
+  console.log(error);
 
   server.close(() => {
     process.exit(1);
