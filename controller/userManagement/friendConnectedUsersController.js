@@ -4,7 +4,7 @@ const friendConnectedUsersController = async (req, resp) => {
   try {
     const userFriend = await userModels
       .findById(req.user)
-      .populate("friends", "_id email fullname status");
+      .populate("friends", "_id email fullname status avatar");
     return resp.json({
       message: "successfully found friends",
       data: userFriend.friends,

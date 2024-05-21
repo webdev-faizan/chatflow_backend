@@ -5,7 +5,7 @@ const requestConnectedUsersController = async (req, resp) => {
     const userId = req.user;
     const requestToConnected = await friendModel
       .find({ recipeint: userId })
-      .populate("sender", "_id fullname status");
+      .populate("sender", "_id fullname status avatar");
     return resp.status(200).json({
       message: "successfully found request users",
       data: requestToConnected,

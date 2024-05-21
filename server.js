@@ -111,7 +111,7 @@ io.on("connection", async (socket) => {
       })
         .populate(
           "participants",
-          "fullname status email  _id lastMessage lastMessageTime unread lastMessageTimeSort status"
+          "fullname status email  _id lastMessage lastMessageTime unread lastMessageTimeSort status avatar"
         )
         .select("-message");
       callback(diretConversions, to);
@@ -333,27 +333,28 @@ io.on("connection", async (socket) => {
       .select("socketId status");
 
     if (user.status == "online") {
-      io.to(user.socketId).emit("calluser", { signal: signalData, to: to });
+      io.to(user?.socketId).emit("calluser", { signal: signalData, to: to });
     } else {
       const user = await userModels.findById(to).select("socketId");
 
-      io.to(user.socketId).emit("user_offline", {
+      io.to(user?.socketId).emit("user_offline", {
         message: "The user is currently unavailable",
       });
     }
   });
   //! audio call
   socket.on("calluser_audio", async (data) => {
-    const { signalData, userToCall, token } = data;
+    const { signalData, userToCall, token, avatar, fullname } = data;
     const to = await jwtDecodes(token).id;
     const user = await userModels
       .findById(userToCall)
       .select("socketId status");
     if (user.status == "online") {
-      console.log("status");
       io.to(user.socketId).emit("calluser_audio", {
         signal: signalData,
         to: to,
+        avatar,
+        fullname,
       });
     } else {
       const user = await userModels.findById(to).select("socketId");
@@ -374,7 +375,7 @@ io.on("connection", async (socket) => {
   socket.on("call_denied", async ({ id }) => {
     console.log("call denied");
     const user = await userModels.findById(id).select("socketId");
-    io.to(user.socketId).emit("call_denied", { message: "Call Denied" });
+    io.to(user?.socketId).emit("call_denied", { message: "Call Denied" });
   });
   //! call end
   socket.on("call_end", async ({ id }) => {
@@ -394,14 +395,14 @@ io.on("connection", async (socket) => {
   //! infom user user call end the cal
   socket.on("audio_call_end", async ({ id }) => {
     const user = await userModels.findById(id).select("socketId");
-    io.to(user.socketId).emit("audio_call_end", {
+    io.to(user?.socketId).emit("audio_call_end", {
       message: "use have end the call",
     });
   });
 
   socket.on("Video_call_end", async ({ id }) => {
     const user = await userModels.findById(id).select("socketId");
-    io.to(user.socketId).emit("Video_call_end", {
+    io.to(user?.socketId).emit("Video_call_end", {
       message: "use have end the call",
     });
   });

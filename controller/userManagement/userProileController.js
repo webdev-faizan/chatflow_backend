@@ -1,6 +1,6 @@
 import userModels from "../../models/userModels.js";
 
-const userProileController = async (req, resp) => {
+const userProfileUpdateController = async (req, resp) => {
   try {
     console.log(req.query);
     const id = await req.user;
@@ -12,4 +12,15 @@ const userProileController = async (req, resp) => {
     return resp.status(500).json({ message: "Internal server error" });
   }
 };
-export default userProileController;
+export default userProfileUpdateController;
+export const userProfileGetController = async (req, resp) => {
+  try {
+    const id = await req.user;
+    const user = await userModels
+      .findById(id)
+      .select("fullname email avatar createdAt");
+    return resp.status(200).json(user);
+  } catch (error) {
+    return resp.status(500).json({ message: "Internal server error" });
+  }
+};
