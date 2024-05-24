@@ -8,8 +8,9 @@ import userModels from "./models/userModels.js";
 import jwtDecodes from "./utils/jwtDecode.js";
 import friendModel from "./models/friendRequestModel.js";
 import OnetoOneMessageModel from "./models/oneToOneMessages.js";
+import Jwt from "jsonwebtoken";
+import { CheckValidObjectId } from "./utils/objectIdValidator.js";
 process.on("uncaughtException", (error) => {
-  console.log(error);
   process.exit(0);
 });
 const server = http.createServer(app);
@@ -31,44 +32,54 @@ server.listen(Port, () => {
   console.log(`port is lissing ${Port}`);
 });
 // Listen for when the client connects via socket.io-client
-io.on("connection", async (socket) => {
-  const authToken = socket.handshake.query["user_token"];
-  const socketId = socket.id;
-  if (Boolean(authToken)) {
-    try {
-      const userInfo = await jwtDecodes(authToken);
-      await userModels.findByIdAndUpdate(
-        { _id: userInfo.id },
-        { socketId, status: "online" }
-      );
-    } catch (error) {
-      console.log(error);
+io.use(async (socket, next) => {
+  try {
+    if (socket.handshake.query["user_token"]) {
+      const authToken = socket.handshake.query["user_token"];
+      const userInfo = await Jwt.verify(authToken, process.env.JWT_SECRET);
+      if (CheckValidObjectId(userInfo?.id)) {
+        const existing_user = await userModels.findById({ _id: userInfo.id });
+        if (existing_user) {
+          socket.userId = existing_user.id;
+          next();
+        } else {
+          const err = new Error("not authorized");
+          err.data = { content: "Please retry later" };
+          next(err);
+        }
+      }
     }
+    return;
+  } catch (error) {
+    const err = new Error("InterNal Server Error");
+    err.data = { content: "Please retry later" };
+    next(err);
   }
+});
+io.on("connection", async (socket) => {
+  const socketId = socket.id;
+  await userModels.findByIdAndUpdate(
+    { _id: socket.userId },
+    { socketId, status: "offline" }
+  );
   //! create friend request
   socket.on("friendRequest", async (data) => {
     const { to, from } = data;
-
     const userInfo = await jwtDecodes(from);
-
     const friendRequestAccept = await userModels.findById({ _id: to });
     const friendRequestSender = await userModels.findById({ _id: userInfo.id });
-
     await new friendModel({
       sender: friendRequestSender._id,
       recipeint: friendRequestAccept._id,
     }).save();
-    //send confrimation notification to user friend request sent
+    //!send confrimation notification to user friend request sent
     io.to(friendRequestSender.socketId).emit("friend_request_sent", {
       message: "friend request send",
     });
   });
-
-  //friend request accepted
-
+  //!friend request accepted
   socket.on("friend_request_accept", async (data) => {
     const { _id } = data;
-
     const isAlreadyUserFriend = await userModels
       .findOne({ _id })
       .select("fullname");
@@ -78,18 +89,16 @@ io.on("connection", async (socket) => {
       });
       return;
     }
-
     const request_doc = await friendModel.findOne({ sender: _id });
     const reciver = await userModels.findById(request_doc.recipeint);
     const sender = await userModels.findById(request_doc.sender);
-    //add friends
+    //! add friends
     reciver.friends.push(sender._id);
     sender.friends.push(reciver._id);
     reciver.save();
     sender.save();
 
-    //infom sender to xyz have friend request accepted
-
+    //! Infom sender to xyz have friend request accepted
     socket.to(sender?.socketId).emit("friend_request_accepted", {
       message: `${reciver?.fullname} has accepted your friend request.`,
     });
@@ -97,146 +106,115 @@ io.on("connection", async (socket) => {
     io.to(reciver?.socketId).emit("friend_request_accepted", {
       message: `🎉 You have a new friend: ${sender?.fullname}! Welcome them with open arms!`,
     });
-
     const res = await friendModel.deleteMany({ recipeint: reciver._id });
   });
   //!get all chatlist
   socket.on("get_direct_conversions", async (data, callback) => {
-    try {
-      console.log("get direct conversons above");
-      const { token } = data;
-      const to = jwtDecodes(token).id;
-      const diretConversions = await OnetoOneMessageModel.find({
-        participants: { $all: [to] },
-      })
-        .populate(
-          "participants",
-          "fullname status email  _id lastMessage lastMessageTime unread lastMessageTimeSort status avatar"
-        )
-        .select("-message");
-      callback(diretConversions, to);
-    } catch (error) {
-      console.log(error);
-    }
+    const { token } = data;
+    const to = jwtDecodes(token).id;
+    const diretConversions = await OnetoOneMessageModel.find({
+      participants: { $all: [to] },
+    })
+      .populate(
+        "participants",
+        "fullname status email  _id lastMessage lastMessageTime unread lastMessageTimeSort status avatar"
+      )
+      .select("-message");
+    callback(diretConversions, to);
   });
   //! start_conversion
 
   socket.on("start_conversion", async (data, callback) => {
-    try {
-      const { token, from } = data;
-      const to = await jwtDecodes(token).id;
-      const existing_conversations = await OnetoOneMessageModel.find({
-        participants: { $size: 2, $all: [to, from] },
-      }).populate("participants", "fullname");
-      if (existing_conversations.length == 0) {
-        let new_chat = await OnetoOneMessageModel.create({
-          participants: [to, from],
-        });
-        new_chat.save();
+    const { token, from } = data;
+    const to = await jwtDecodes(token).id;
+    const existing_conversations = await OnetoOneMessageModel.find({
+      participants: { $size: 2, $all: [to, from] },
+    }).populate("participants", "fullname");
+    if (existing_conversations.length == 0) {
+      let new_chat = await OnetoOneMessageModel.create({
+        participants: [to, from],
+      });
+      new_chat.save();
 
-        new_chat = OnetoOneMessageModel.find({
-          participants: { $size: 2, all: [to, from] },
-        });
+      new_chat = OnetoOneMessageModel.find({
+        participants: { $size: 2, all: [to, from] },
+      });
 
-        socket.emit("start_chat", new_chat);
+      socket.emit("start_chat", new_chat);
 
-        callback(new_chat._id, from);
-      } else {
-        await OnetoOneMessageModel.updateOne(
-          {
-            _id: existing_conversations[0]._id,
-            "status.id": to,
-          },
-          {
-            $set: { "status.$.delete": false, lastMessageTimeSort: Date.now() },
-          }
-        );
-        socket.emit("start_chat", existing_conversations[0]);
-        callback(existing_conversations[0]._id, from);
-      }
-    } catch (error) {
-      console.log(error);
+      callback(new_chat._id, from);
+    } else {
+      await OnetoOneMessageModel.updateOne(
+        {
+          _id: existing_conversations[0]._id,
+          "status.id": to,
+        },
+        {
+          $set: { "status.$.delete": false, lastMessageTimeSort: Date.now() },
+        }
+      );
+      socket.emit("start_chat", existing_conversations[0]);
+      callback(existing_conversations[0]._id, from);
     }
   });
   //!send user message when click on chat list
   socket.on("get_message", async (data, callback) => {
-    try {
-      const { conversions_id, token } = data;
-      const to = await jwtDecodes(token).id;
-      const chats = await OnetoOneMessageModel.findById(conversions_id);
-      try {
-        const result = await OnetoOneMessageModel.updateOne(
-          { _id: conversions_id, "unread.id": to },
-          { $set: { "unread.$.unread": 0 } }
-        );
-      } catch (error) {
-        console.error("Update Error:", error);
-      }
-
-      callback(chats.message);
-    } catch (error) {
-      console.log(error);
-    }
+    const { conversions_id, token } = data;
+    const to = await jwtDecodes(token).id;
+    const chats = await OnetoOneMessageModel.findById(conversions_id);
+    const result = await OnetoOneMessageModel.updateOne(
+      { _id: conversions_id, "unread.id": to },
+      { $set: { "unread.$.unread": 0 } }
+    );
+    callback(chats.message);
   });
-
   //!send text message
-
   socket.on("text_message", async (data) => {
-    try {
-      const { token, from, message, conversation_id } = data;
-      const currentDate = new Date();
-      const formattedTime = await currentDate.toLocaleTimeString("en-US", {
-        hour: "numeric",
-        minute: "numeric",
-        hour12: true, // Set to true to include AM/PM
-      });
+    const { token, from, message, conversation_id } = data;
+    const currentDate = new Date();
+    const formattedTime = await currentDate.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "numeric",
+      hour12: true,
+    });
+    const chat = await OnetoOneMessageModel.findById(conversation_id);
+    const to = jwtDecodes(token).id;
+    const to_user = await userModels.findById(to);
+    const from_user = await userModels.findById(from);
+    chat.lastMessageTime = formattedTime;
+    chat.lastMessageTimeSort = Date.now();
 
-      const chat = await OnetoOneMessageModel.findById(conversation_id);
-      const to = jwtDecodes(token).id;
-      const to_user = await userModels.findById(to);
-      const from_user = await userModels.findById(from);
-      chat.lastMessageTime = formattedTime;
-      chat.lastMessageTimeSort = Date.now();
+    //!user update last message and time and unread messages
+    //* what is $ on here it can update fast matching value
+    chat.lastMessageTime = formattedTime;
+    chat.lastMessage = message;
+    const result = await OnetoOneMessageModel.updateOne(
+      { _id: conversation_id, "unread.id": from },
+      { $inc: { "unread.$.unread": 1 } }
+    );
 
-      //!user update last message and time and unread messages
-      //* what is $ on here it can update fast matching value
+    //! unread message
 
-      chat.lastMessageTime = formattedTime;
-      chat.lastMessage = message;
-      try {
-        const result = await OnetoOneMessageModel.updateOne(
-          { _id: conversation_id, "unread.id": from },
-          { $inc: { "unread.$.unread": 1 } }
-        );
-      } catch (error) {
-        console.error("Update Error:", error);
-      }
+    const new_message = {
+      to,
+      from,
+      type: "msg",
+      message: message,
+      created_at: `${Date()} + ${formattedTime}`,
+    };
+    chat.message.push(new_message);
+    await chat.save();
 
-      //! unread message
-
-      const new_message = {
-        to,
-        from,
-        type: "msg",
-        message: message,
-        created_at: `${Date()} + ${formattedTime}`,
-      };
-      chat.message.push(new_message);
-      await chat.save();
-
-      io.to(to_user?.socketId).emit("new_message", {
-        message: new_message,
-        conversation_id,
-        token,
-      });
-      io.to(from_user?.socketId).emit("new_message", {
-        message: new_message,
-        conversation_id,
-        token,
-      });
-    } catch (error) {
-      console.log(error);
-    }
+    io.to(to_user?.socketId).emit("new_message", {
+      message: new_message,
+      conversation_id,
+      token,
+    });
+    io.to(from_user?.socketId).emit("new_message", {
+      message: new_message,
+      conversation_id,
+      token,
+    });
   });
   //!link message
 
@@ -274,12 +252,11 @@ io.on("connection", async (socket) => {
         message: message,
         created_at: `${Date()} + ${formattedTime}`,
       };
-      if (subType == "Media") {
-        chat.lastMessage == "🖼️  🖼️";
-      } else if (subType == "Document") {
-        chat.lastMessage == "📋  📋";
+      if (subType === "Media") {
+        chat.lastMessage = "🖼️  🖼️";
+      } else if (subType === "Document") {
+        chat.lastMessage = "📋  📋";
       }
-
       chat.message.push(new_message);
       await chat.save();
 
@@ -296,28 +273,20 @@ io.on("connection", async (socket) => {
     }
   });
   socket.on("read_message", async (data) => {
-    try {
-      const { conversions_id, token } = data;
-      const to = await jwtDecodes(token).id;
-      const result = await OnetoOneMessageModel.updateOne(
-        { _id: conversions_id, "unread.id": to },
-        { $set: { "unread.$.unread": 0 } }
-      );
-    } catch (error) {
-      console.error("Update Error:", error);
-    }
+    const { conversions_id, token } = data;
+    const to = await jwtDecodes(token).id;
+    const result = await OnetoOneMessageModel.updateOne(
+      { _id: conversions_id, "unread.id": to },
+      { $set: { "unread.$.unread": 0 } }
+    );
   });
   socket.on("delete_chatlist", async (data) => {
-    try {
-      const { conversions_id, token } = data;
-      const to = await jwtDecodes(token).id;
-      await OnetoOneMessageModel.updateOne(
-        { _id: conversions_id, "status.id": to },
-        { $set: { "status.$.delete": true } }
-      );
-    } catch (error) {
-      console.error("Update Error:", error);
-    }
+    const { conversions_id, token } = data;
+    const to = await jwtDecodes(token).id;
+    await OnetoOneMessageModel.updateOne(
+      { _id: conversions_id, "status.id": to },
+      { $set: { "status.$.delete": true } }
+    );
   });
   //! video calling && audio call
   //* check user is buy or not
@@ -326,7 +295,6 @@ io.on("connection", async (socket) => {
   //! call user for video
   socket.on("calluser", async (data) => {
     const { signalData, userToCall, token } = data;
-
     const to = await jwtDecodes(token).id;
     const user = await userModels
       .findById(userToCall)
@@ -373,7 +341,6 @@ io.on("connection", async (socket) => {
   });
   //!call denied
   socket.on("call_denied", async ({ id }) => {
-    console.log("call denied");
     const user = await userModels.findById(id).select("socketId");
     io.to(user?.socketId).emit("call_denied", { message: "Call Denied" });
   });
@@ -410,19 +377,10 @@ io.on("connection", async (socket) => {
     // console.log(socket.id);
     // socket.broadcast.emit("callEnded");
   });
-  io.on("close", async (data) => {
-    console.log({ data, message: "user disconnected" });
-    // const userInfo = data.userInfo;
-    // await User.findByIdAndUpdate(data.user_id, { status: "Offline" });
-    // socket.disconnect(0)
-  });
   // We can write our socket event listeners in here...
 });
 
 process.on("unhandledRejection", (error) => {
-  // console.log({ unhandledRejection });
-  console.log(error);
-
   server.close(() => {
     process.exit(1);
   });
