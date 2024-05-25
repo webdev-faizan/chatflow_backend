@@ -10,7 +10,6 @@ const friendConnectedUsersController = async (req, resp) => {
       data: userFriend.friends,
     });
   } catch (error) {
-    console.log(error);
     return resp.json({ message: "internal server error" }).status(500);
   }
 };

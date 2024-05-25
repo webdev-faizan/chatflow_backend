@@ -37,7 +37,6 @@ const signUpController = async (req, resp) => {
       });
     }
   } catch (error) {
-    console.log(error);
     return resp.status(500).json({ message: "Internal server Error" });
   }
 };

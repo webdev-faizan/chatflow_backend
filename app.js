@@ -4,20 +4,16 @@ import cors from "cors";
 import mongoSanitize from "express-mongo-sanitize";
 import { xss } from "express-xss-sanitizer";
 import bodyParser from "body-parser";
-import { Cors, Limit } from "./config.js";
+import { Cors } from "./config.js";
 import Route from "./routes/Route.js";
 const app = Express();
-// middlewares
-
-// app.use(morgan("combined"));
-// app.use(helmet());
-// app.use(rateLimit(Limit));
+app.use(helmet());
+app.use(mongoSanitize());
+app.use(xss());
 app.use(cors(Cors));
 app.use(Express.json({ limit: "40kb" }));
-// if (process.env.NODE_ENV == "development") app.use(morgan("combined"));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.urlencoded({ extended: false }));
-app.use(xss());
 app.use("/v1", Route);
 
 app.get("/", (req, res) => {

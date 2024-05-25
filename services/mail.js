@@ -17,21 +17,14 @@ const sendNodemailerMail = async ({
   attachments,
   text,
 }) => {
-  try {
-    console.log('con')
-    const mailOptions = {
-      from: process.env.USERNAME,
-      to: to,
-      subject: subject,
-      html: html,
-      attachments: attachments,
-    };
-    transporter.sendMail(mailOptions);
-
-    return;
-  } catch (error) {
-    console.log(error);
-  }
+  const mailOptions = {
+    from: process.env.USERNAME,
+    to: to,
+    subject: subject,
+    html: html,
+    attachments: attachments,
+  };
+  transporter.sendMail(mailOptions);
 };
 
 export default sendNodemailerMail;

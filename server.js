@@ -1,15 +1,17 @@
 import "dotenv/config";
 import http from "http";
-import app from "./app.js";
+import helmet from "helmet";
+import mongoSanitize from "express-mongo-sanitize";
+import { xss } from "express-xss-sanitizer";
 import mongoose from "mongoose";
 import { Server } from "socket.io";
-import { Cors } from "./config.js";
+import Jwt from "jsonwebtoken";
 import userModels from "./models/userModels.js";
 import jwtDecodes from "./utils/jwtDecode.js";
 import friendModel from "./models/friendRequestModel.js";
 import OnetoOneMessageModel from "./models/oneToOneMessages.js";
-import Jwt from "jsonwebtoken";
 import { CheckValidObjectId } from "./utils/objectIdValidator.js";
+import app from "./app.js";
 process.on("uncaughtException", (error) => {
   process.exit(0);
 });
@@ -50,17 +52,20 @@ io.use(async (socket, next) => {
       }
     }
     return;
-  } catch (error) {
+  } catch {
     const err = new Error("InterNal Server Error");
     err.data = { content: "Please retry later" };
     next(err);
   }
 });
+io.engine.use(helmet());
+io.engine.use(mongoSanitize());
+io.engine.use(xss());
 io.on("connection", async (socket) => {
   const socketId = socket.id;
   await userModels.findByIdAndUpdate(
     { _id: socket.userId },
-    { socketId, status: "offline" }
+    { socketId, status: "online" }
   );
   //! create friend request
   socket.on("friendRequest", async (data) => {
@@ -219,58 +224,54 @@ io.on("connection", async (socket) => {
   //!link message
 
   socket.on("link_message", async (data) => {
-    try {
-      const {
-        token,
-        from,
-        subType,
-        type,
-        message,
-        conversation_id,
-        link,
-        fileName,
-      } = data;
-      const chat = await OnetoOneMessageModel.findById(conversation_id);
-      const to = jwtDecodes(token).id;
-      const to_user = await userModels.findById(to);
+    const {
+      token,
+      from,
+      subType,
+      type,
+      message,
+      conversation_id,
+      link,
+      fileName,
+    } = data;
+    const chat = await OnetoOneMessageModel.findById(conversation_id);
+    const to = jwtDecodes(token).id;
+    const to_user = await userModels.findById(to);
 
-      const from_user = await userModels.findById(from);
-      const currentDate = new Date();
+    const from_user = await userModels.findById(from);
+    const currentDate = new Date();
 
-      const formattedTime = currentDate.toLocaleTimeString("en-US", {
-        hour: "numeric",
-        minute: "numeric",
-        hour12: true, // Set to true to include AM/PM
-      });
-      const new_message = {
-        to,
-        from,
-        type,
-        subType: subType,
-        fileName,
-        link,
-        message: message,
-        created_at: `${Date()} + ${formattedTime}`,
-      };
-      if (subType === "Media") {
-        chat.lastMessage = "🖼️  🖼️";
-      } else if (subType === "Document") {
-        chat.lastMessage = "📋  📋";
-      }
-      chat.message.push(new_message);
-      await chat.save();
-
-      io.to(to_user?.socketId).emit("new_message", {
-        message: new_message,
-        conversation_id,
-      });
-      io.to(from_user?.socketId).emit("new_message", {
-        message: new_message,
-        conversation_id,
-      });
-    } catch (error) {
-      console.log(error);
+    const formattedTime = currentDate.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "numeric",
+      hour12: true, // Set to true to include AM/PM
+    });
+    const new_message = {
+      to,
+      from,
+      type,
+      subType: subType,
+      fileName,
+      link,
+      message: message,
+      created_at: `${Date()} + ${formattedTime}`,
+    };
+    if (subType === "Media") {
+      chat.lastMessage = "🖼️  🖼️";
+    } else if (subType === "Document") {
+      chat.lastMessage = "📋  📋";
     }
+    chat.message.push(new_message);
+    await chat.save();
+
+    io.to(to_user?.socketId).emit("new_message", {
+      message: new_message,
+      conversation_id,
+    });
+    io.to(from_user?.socketId).emit("new_message", {
+      message: new_message,
+      conversation_id,
+    });
   });
   socket.on("read_message", async (data) => {
     const { conversions_id, token } = data;
@@ -351,13 +352,9 @@ io.on("connection", async (socket) => {
   });
   //!answer call
   socket.on("answerCall", async (data) => {
-    try {
-      const { signal, caluserinfo } = data;
-      const user = await userModels.findById(caluserinfo).select("socketId");
-      io.to(user.socketId).emit("callAccepted", signal);
-    } catch (error) {
-      console.log(error);
-    }
+    const { signal, caluserinfo } = data;
+    const user = await userModels.findById(caluserinfo).select("socketId");
+    io.to(user.socketId).emit("callAccepted", signal);
   });
   //! infom user user call end the cal
   socket.on("audio_call_end", async ({ id }) => {

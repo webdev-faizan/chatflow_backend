@@ -11,7 +11,6 @@ const requestConnectedUsersController = async (req, resp) => {
       data: requestToConnected,
     });
   } catch (error) {
-    console.log(error);
     return resp.status(500).json({ message: "internal server error" });
   }
 };

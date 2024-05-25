@@ -10,7 +10,6 @@ const emailVerification = async (req, res) => {
     }
     const id = tokenInfo.id;
     const date = Date.now();
-    console.log(date);
     const this_user = await userModels
       .findById(id)
       .where("optExpiryToken")
@@ -28,7 +27,6 @@ const emailVerification = async (req, res) => {
       .status(200)
       .json({ message: "Email verification completed successfully" });
   } catch (error) {
-    console.log(error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };

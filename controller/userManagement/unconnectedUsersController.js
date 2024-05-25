@@ -21,7 +21,6 @@ const unconnectedUsersController = async (req, resp) => {
       data: remaining_users,
     });
   } catch (error) {
-    console.log(error);
     resp.status(500).json({ message: "Internal server error" });
   }
 };

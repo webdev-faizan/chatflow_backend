@@ -7,8 +7,7 @@ const loginController = async (req, resp) => {
     const user = await userModels
       .findOne({ email })
       .select("_id email firstName lastName password emailVerified");
-      const hashPassword = await user?.correctPassword(password, user?.password);
-      console.log(hashPassword)
+    const hashPassword = await user?.correctPassword(password, user?.password);
     if (hashPassword) {
       if (!user?.emailVerified) {
         resp.status(400).json({ message: "Please verify your email" });
@@ -27,7 +26,6 @@ const loginController = async (req, resp) => {
         .json({ message: "Email or password is incorrect", status: "error" });
     }
   } catch (error) {
-    console.log(error);
     return resp.status(500).json({ message: "Internal Server Error" });
   }
 };

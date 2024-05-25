@@ -2,7 +2,6 @@ import userModels from "../../models/userModels.js";
 
 const userProfileUpdateController = async (req, resp) => {
   try {
-    console.log(req.query);
     const id = await req.user;
     await userModels.findByIdAndUpdate(id, {
       $set: { avatar: req.query.profileUrl },
