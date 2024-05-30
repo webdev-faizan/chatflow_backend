@@ -19,7 +19,7 @@ const server = http.createServer(app);
 const Port = process.env.PORT || 8000;
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:3000",
+    origin: process.env.BASE_URL,
   },
 });
 mongoose
@@ -370,11 +370,12 @@ io.on("connection", async (socket) => {
       message: "use have end the call",
     });
   });
-  socket.on("disconnect", async (userId) => {
-    // console.log(socket.id);
-    // socket.broadcast.emit("callEnded");
+  socket.on("disconnect", async () => {
+    await userModels.updateOne(
+      { socketId: socket.id },
+      { $set: { status: "offline" } }
+    );
   });
-  // We can write our socket event listeners in here...
 });
 
 process.on("unhandledRejection", (error) => {
