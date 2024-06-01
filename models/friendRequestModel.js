@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-
 const FriendSehma = mongoose.Schema({
   sender: {
     type: mongoose.Schema.ObjectId,
@@ -15,6 +14,5 @@ const FriendSehma = mongoose.Schema({
     default: Date.now(),
   },
 });
-
 const friendModel = mongoose.model("friendRequest", FriendSehma);
 export default friendModel;

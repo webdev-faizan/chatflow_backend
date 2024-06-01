@@ -1,7 +1,6 @@
 import mongoose from "mongoose";
 const { ObjectId } = mongoose.Types;
 import userModels from "../../models/userModels.js";
-
 const unconnectedUsersController = async (req, resp) => {
   try {
     const userId = await req.user;
@@ -27,7 +26,7 @@ const unconnectedUsersController = async (req, resp) => {
             { _id: { $ne: new ObjectId(userId) } },
             {
               _id: {
-                $nin: userinfo.friends.map((friend) => new ObjectId(friend)),
+                $nin: userinfo.friends,
               },
             },
           ],
@@ -48,7 +47,6 @@ const unconnectedUsersController = async (req, resp) => {
       data: remaining_users,
     });
   } catch (error) {
-    console.log(error);
     resp.status(500).json({ message: "Internal server error" });
   }
 };

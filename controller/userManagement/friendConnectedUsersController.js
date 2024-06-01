@@ -1,5 +1,4 @@
 import userModels from "../../models/userModels.js";
-
 const friendConnectedUsersController = async (req, resp) => {
   try {
     const userFriend = await userModels

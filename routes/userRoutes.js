@@ -7,7 +7,6 @@ import userProfileUpdateController, {
   userProfileGetController,
 } from "../controller/userManagement/userProileController.js";
 const userRoutes = Router();
-
 userRoutes.get("/unconnectedusers", ProtectRoutes, unconnectedUsersController);
 userRoutes.get(
   "/connectedusers",

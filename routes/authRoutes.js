@@ -10,5 +10,4 @@ authRoutes.post("/register", signUpController);
 authRoutes.post("/email-verification", emailVerification);
 authRoutes.post("/forgot-password", forgetPassword);
 authRoutes.post("/new-password", newPassword);
-
 export default authRoutes;

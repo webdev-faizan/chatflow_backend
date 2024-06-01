@@ -1,5 +1,4 @@
 import userModels from "../../models/userModels.js";
-
 const userProfileUpdateController = async (req, resp) => {
   try {
     const id = await req.user;

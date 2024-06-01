@@ -1,5 +1,4 @@
 import friendModel from "../../models/friendRequestModel.js";
-
 const requestConnectedUsersController = async (req, resp) => {
   try {
     const userId = req.user;

@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-
 const oneToOneMessagesSchema = new mongoose.Schema({
   participants: [
     {

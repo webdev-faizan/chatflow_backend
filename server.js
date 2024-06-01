@@ -24,7 +24,7 @@ const io = new Server(server, {
 });
 mongoose
   .connect(process.env.MONGOURI)
-  .then((resp) => {
+  .then(() => {
     console.log("successfully connected to the database");
   })
   .catch(() => {

@@ -1,5 +1,4 @@
 import nodemailer from "nodemailer";
-
 const transporter = nodemailer.createTransport({
   service: "gmail",
   host: "smtp.ethereal.email",
